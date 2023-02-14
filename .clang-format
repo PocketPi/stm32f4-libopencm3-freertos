@@ -1,0 +1,23 @@
+Language: Cpp
+BasedOnStyle: llvm
+IndentWidth: 4
+AllowShortFunctionsOnASingleLine: None
+KeepEmptyLinesAtTheStartOfBlocks: false
+BreakBeforeBraces: Attach
+ColumnLimit: 200
+IndentCaseBlocks: false
+IndentCaseLabels: true
+AlignConsecutiveMacros: true
+DerivePointerAlignment: false
+PointerAlignment: Right
+DeriveLineEnding: true
+AllowShortEnumsOnASingleLine: false
+IncludeBlocks: Merge
+IncludeCategories:
+  - Regex:           '^<.*\.h>'
+    Priority:        2
+    CaseSensitive:   false
+  - Regex:           '.*'
+    Priority:        1
+    CaseSensitive:   false
+AlignEscapedNewlines: Left

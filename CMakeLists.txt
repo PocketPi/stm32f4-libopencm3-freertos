@@ -9,6 +9,21 @@ project(firmware)
 include(cmake/freertos.cmake)
 include(cmake/libopencm3.cmake)
 
-add_executable(firmware src/main.c)
+add_executable(firmware.elf src/main.c)
 
-target_link_libraries(firmware stm32f4)
+target_link_options(firmware.elf PRIVATE -T../generated.stm32g031k8.ld)
+
+target_link_libraries(firmware.elf libopencm3)
+
+
+add_custom_target(clangformat
+COMMAND
+  clang-format
+  -style=file
+  -i
+  --verbose
+  *.c
+  *.h
+WORKING_DIRECTORY
+    ${src_SOURCE_DIR}
+)
