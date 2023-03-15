@@ -1,49 +1,50 @@
 #include "FreeRTOS.h"
+#include "hw_init.h"
+#include "i2c.h"
+#include "ina232.h"
 #include "task.h"
-#include <libopencm3/cm3/systick.h>
 #include <libopencm3/stm32/gpio.h>
-#include <libopencm3/stm32/rcc.h>
-
-/* Set up a timer to create 1mS ticks. */
-static void systick_setup(void) {
-    /* clock rate / 1000 to get 1mS interrupt rate */
-    systick_set_reload(rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_96MHZ].ahb_frequency / 1000);
-    systick_set_clocksource(STK_CSR_CLKSOURCE_AHB);
-    systick_counter_enable();
-    /* this done last */
-    systick_interrupt_enable();
-}
-
-static void clock_setup(void) {
-    rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_96MHZ]);
-
-    rcc_periph_clock_enable(RCC_GPIOC);
-}
-
-static void gpio_setup(void) {
-    /* Setup GPIO pin GPIO13 on GPIO port C for LED. */
-    gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO13);
-}
-
-static void hw_init(void) {
-    clock_setup();
-    gpio_setup();
-    systick_setup();
-}
+#include <stdio.h>
 
 static void task1(void *args __attribute((unused))) {
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    printf("\033[H\033[J");
+    printf("SOUNDBOKS\n");
+
+    uint16_t id = read_manufacturer_id();
+    printf("manufacturer id: \t0x%04x\n", id);
+
+    set_calibration_register(2048);
+    set_configuration_register(0x4127 | 0x0400);
+
     for (;;) {
-        gpio_toggle(GPIOC, GPIO13);
+
+        printf("Shunt voltage[V]: \t%f\n", read_shunt_voltage());
+        printf("Bus voltage[V]: \t%f\n", read_bus_voltage());
+        printf("Current[A]: \t\t%f\n", read_current());
+        printf("Power[W]: \t\t%f\n", read_power());
+
+        /*
+        printf("Shunt voltage raw: \t0x%04x\n", read_shunt_voltage_raw());
+        printf("Bus voltage raw: \t0x%04x\n", read_bus_voltage_raw());
+        printf("Current raw: \t\t0x%04x\n", read_current_raw());
+        printf("Power raw: \t\t0x%04x\n", read_power_raw());
+        */
+        gpio_toggle(GPIOC, GPIO13); /* LED on/off */
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
-int main(void) {
-    hw_init();
-    xTaskCreate(task1, "LED1", 100, NULL, configMAX_PRIORITIES - 1, NULL);
-    vTaskStartScheduler();
-    for (;;)
-        ;
+    int main(void) {
+        hw_init();
+        i2c_setup();
 
-    return 0;
-}
+        xTaskCreate(task1, "LED1", 1024, NULL, configMAX_PRIORITIES - 1, NULL);
+        vTaskStartScheduler();
+        for (;;) {
+            ;
+        }
+
+        return 0;
+    }

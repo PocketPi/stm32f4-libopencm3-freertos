@@ -18,6 +18,7 @@ OPENCM3_DIR := $(SUBMODULES_DIR)/libopencm3
 FREERTOS_DIR := $(SUBMODULES_DIR)/FreeRTOS
 
 SMBUS_DIR := $(SUBMODULES_DIR)/SMBus
+INA323_DIR := $(SRC_DIR)/ina232
 
 
 # all the files will be generated with this name (main.elf, main.bin, main.hex, etc)
@@ -25,6 +26,7 @@ PROJECT_NAME=main
 
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 SRC_FILES += $(wildcard $(SMBUS_DIR)/*.c)
+SRC_FILES += $(wildcard $(INA323_DIR)/*.c)
 
 FREERTOS_SRC_FILES := $(FREERTOS_DIR)/tasks.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/list.c
@@ -39,6 +41,7 @@ INCLUDES += -I$(OPENCM3_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/portable/GCC/ARM_CM4F
 INCLUDES += -I$(SMBUS_DIR)
+INCLUDES += -I$(INA323_DIR)
 
 OBJECTS := $(addprefix $(OBJ_DIR)/, $(SRC_FILES:.c=.o))
 OBJECTS += $(addprefix $(OBJ_DIR)/, $(FREERTOS_SRC_FILES:.c=.o))
@@ -47,6 +50,8 @@ OBJECTS += $(addprefix $(OBJ_DIR)/, $(FREERTOS_SRC_FILES:.c=.o))
 DEFS		+= $(INCLUDES)
 LDFLAGS		+= -L$(OPENCM3_DIR)/lib
 LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+LDLIBS 		+= -specs=nosys.specs
+
 
 include $(OPENCM3_DIR)/mk/genlink-config.mk
 
@@ -92,7 +97,7 @@ TGT_CFLAGS	+= $(ARCH_FLAGS)
 TGT_CFLAGS	+= -Wextra -Wshadow -Wimplicit-function-declaration
 TGT_CFLAGS	+= -Wredundant-decls -Wmissing-prototypes -Wstrict-prototypes
 TGT_CFLAGS	+= -fno-common -ffunction-sections -fdata-sections
-#TGT_CFLAGS  += -Werror -Wpedantic -Wall -Wundef
+TGT_CFLAGS  += -Werror -Wpedantic
 
 # C & C++ preprocessor common flags
 TGT_CPPFLAGS	+= -MD
@@ -108,6 +113,8 @@ TGT_LDFLAGS		+= -Wl,--gc-sections
 ifeq ($(V),1)
 TGT_LDFLAGS		+= -Wl,--print-gc-sections
 endif
+TGT_LDFLAGS += -Wl,--print-memory-usage
+TGT_LDFLAGS += -u _printf_float
 
 .PHONY: all clean flash
 .SECONDARY: $(OBJECTS) $(BIN_DIR)/$(PROJECT_NAME).elf
