@@ -9,8 +9,8 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
-OPENCM3_DIR := inc/libopencm3
-FREERTOS_DIR := inc/FreeRTOS
+OPENCM3_DIR := submodules/libopencm3
+FREERTOS_DIR := submodules/FreeRTOS
 
 OBJ_DIR = obj
 BIN_DIR = bin
@@ -159,5 +159,3 @@ format:
 	$(Q)clang-format -i -style=file --verbose $(SRC_FILES)
 
 include $(OPENCM3_DIR)/mk/genlink-rules.mk
-
-
