@@ -4,3 +4,6 @@
 [submodule "inc/FreeRTOS"]
 	path = submodules/FreeRTOS
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "submodules/SMBus"]
+	path = submodules/SMBus
+	url = https://github.com/PocketPi/SMBus.git

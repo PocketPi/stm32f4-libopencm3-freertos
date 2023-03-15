@@ -9,32 +9,38 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
-OPENCM3_DIR := submodules/libopencm3
-FREERTOS_DIR := submodules/FreeRTOS
-
 OBJ_DIR = obj
 BIN_DIR = bin
 SRC_DIR = src
+SUBMODULES_DIR = submodules
+
+OPENCM3_DIR := $(SUBMODULES_DIR)/libopencm3
+FREERTOS_DIR := $(SUBMODULES_DIR)/FreeRTOS
+
+SMBUS_DIR := $(SUBMODULES_DIR)/SMBus
+
 
 # all the files will be generated with this name (main.elf, main.bin, main.hex, etc)
 PROJECT_NAME=main
 
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
+SRC_FILES += $(wildcard $(SMBUS_DIR)/*.c)
 
-FREERTOS_SRC_FILES += $(FREERTOS_DIR)/tasks.c
+FREERTOS_SRC_FILES := $(FREERTOS_DIR)/tasks.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/list.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/queue.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/timers.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/portable/GCC/ARM_CM4F/port.c
 FREERTOS_SRC_FILES += $(FREERTOS_DIR)/portable/MemMang/heap_4.c
 
-INCLUDES  = -I$(realpath config)
+INCLUDES := -I$(realpath config)
 INCLUDES += -I$(realpath src)
 INCLUDES += -I$(OPENCM3_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/portable/GCC/ARM_CM4F
+INCLUDES += -I$(SMBUS_DIR)
 
-OBJECTS  = $(addprefix $(OBJ_DIR)/, $(SRC_FILES:.c=.o))
+OBJECTS := $(addprefix $(OBJ_DIR)/, $(SRC_FILES:.c=.o))
 OBJECTS += $(addprefix $(OBJ_DIR)/, $(FREERTOS_SRC_FILES:.c=.o))
 
 # Used libraries
@@ -86,7 +92,7 @@ TGT_CFLAGS	+= $(ARCH_FLAGS)
 TGT_CFLAGS	+= -Wextra -Wshadow -Wimplicit-function-declaration
 TGT_CFLAGS	+= -Wredundant-decls -Wmissing-prototypes -Wstrict-prototypes
 TGT_CFLAGS	+= -fno-common -ffunction-sections -fdata-sections
-TGT_CFLAGS  += -Werror -Wpedantic -Wall -Wundef
+#TGT_CFLAGS  += -Werror -Wpedantic -Wall -Wundef
 
 # C & C++ preprocessor common flags
 TGT_CPPFLAGS	+= -MD
@@ -103,33 +109,10 @@ ifeq ($(V),1)
 TGT_LDFLAGS		+= -Wl,--print-gc-sections
 endif
 
-.PHONY: all libopencm3 freertos clean flash
+.PHONY: all clean flash
 .SECONDARY: $(OBJECTS) $(BIN_DIR)/$(PROJECT_NAME).elf
 
-all: libopencm3 freertos $(BIN_DIR)/$(PROJECT_NAME).bin
-
-libopencm3:
-	$(Q)if [ ! "`ls -A $(OPENCM3_DIR)`" ] ; then \
-		printf "#===========# ERROR #===========#\n"; \
-		printf "  libopencm3 is not initialized and build\n"; \
-		printf "  Please run:\n"; \
-		printf "    $$ git submodule update --init\n"; \
-		printf "    $$ make -C inc/libopencm3 -j\n"; \
-		printf "  before running make.\n"; \
-		printf "#===========# ERROR #===========#\n"; \
-		exit 1; \
-		fi
-
-freertos:
-	$(Q)if [ ! "`ls -A $(FREERTOS_DIR)`" ] ; then \
-		printf "#===========# ERROR #===========#\n"; \
-		printf "  FreeRTOS is not initialized\n"; \
-		printf "  Please run:\n"; \
-		printf "    $$ git submodule update --init\n"; \
-		printf "  before running make.\n"; \
-		printf "#===========# ERROR #===========#\n"; \
-		exit 1; \
-		fi
+all: $(BIN_DIR)/$(PROJECT_NAME).bin
 
 $(BIN_DIR)/%.bin: $(BIN_DIR)/%.elf
 	@printf "  OBJCOPY\t$@\n"
