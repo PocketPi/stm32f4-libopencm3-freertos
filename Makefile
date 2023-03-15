@@ -1,3 +1,7 @@
+STM32CUBEPROG ?= STM32_Programmer_CLI
+
+DEVICE=stm32f411ceu6
+
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
 Q := @
@@ -17,12 +21,12 @@ PROJECT_NAME=main
 
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
 
-SRC_FILES += $(FREERTOS_DIR)/tasks.c
-SRC_FILES += $(FREERTOS_DIR)/list.c
-SRC_FILES += $(FREERTOS_DIR)/queue.c
-SRC_FILES += $(FREERTOS_DIR)/timers.c
-SRC_FILES += $(FREERTOS_DIR)/portable/GCC/ARM_CM4F/port.c
-SRC_FILES += $(FREERTOS_DIR)/portable/MemMang/heap_4.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/tasks.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/list.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/queue.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/timers.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/portable/GCC/ARM_CM4F/port.c
+FREERTOS_SRC_FILES += $(FREERTOS_DIR)/portable/MemMang/heap_4.c
 
 INCLUDES  = -I$(realpath config)
 INCLUDES += -I$(realpath src)
@@ -30,15 +34,30 @@ INCLUDES += -I$(OPENCM3_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/include
 INCLUDES += -I$(FREERTOS_DIR)/portable/GCC/ARM_CM4F
 
-OBJECTS = $(addprefix $(OBJ_DIR)/, $(SRC_FILES:.c=.o))
+OBJECTS  = $(addprefix $(OBJ_DIR)/, $(SRC_FILES:.c=.o))
+OBJECTS += $(addprefix $(OBJ_DIR)/, $(FREERTOS_SRC_FILES:.c=.o))
 
-# Linker script for our MCU
-LDSCRIPT = stm32f4-discovery.ld
+# Used libraries
+DEFS		+= $(INCLUDES)
+LDFLAGS		+= -L$(OPENCM3_DIR)/lib
+LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 
-# Using the stm32f4 series chip
-TARGETS		:= stm32/f4
-LIBNAME		= opencm3_stm32f4
-DEFS		+= -DSTM32F4
+include $(OPENCM3_DIR)/mk/genlink-config.mk
+
+ifeq (,$(DEVICE))
+LDLIBS += -l$(OPENCM3_LIB)
+endif
+
+# error if not using linker script generator
+ifeq (,$(DEVICE))
+$(LDSCRIPT):
+ifeq (,$(wildcard $(LDSCRIPT)))
+    $(error Unable to find specified linker script: $(LDSCRIPT))
+endif
+else
+# if linker script generator was used, make sure it's cleaned.
+GENERATED_BINS += $(LDSCRIPT)
+endif
 
 # Target-specific flags
 FP_FLAGS	?= -mfloat-abi=hard -mfpu=fpv4-sp-d16
@@ -67,6 +86,7 @@ TGT_CFLAGS	+= $(ARCH_FLAGS)
 TGT_CFLAGS	+= -Wextra -Wshadow -Wimplicit-function-declaration
 TGT_CFLAGS	+= -Wredundant-decls -Wmissing-prototypes -Wstrict-prototypes
 TGT_CFLAGS	+= -fno-common -ffunction-sections -fdata-sections
+TGT_CFLAGS  += -Werror -Wpedantic -Wall -Wundef
 
 # C & C++ preprocessor common flags
 TGT_CPPFLAGS	+= -MD
@@ -83,34 +103,29 @@ ifeq ($(V),1)
 TGT_LDFLAGS		+= -Wl,--print-gc-sections
 endif
 
-# Used libraries
-DEFS		+= $(INCLUDES)
-LDFLAGS		+= -L$(OPENCM3_DIR)/lib
-LDLIBS		+= -l$(LIBNAME)
-LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
+.PHONY: all libopencm3 freertos clean flash
+.SECONDARY: $(OBJECTS) $(BIN_DIR)/$(PROJECT_NAME).elf
 
 all: libopencm3 freertos $(BIN_DIR)/$(PROJECT_NAME).bin
 
 libopencm3:
 	$(Q)if [ ! "`ls -A $(OPENCM3_DIR)`" ] ; then \
 		printf "#===========# ERROR #===========#\n"; \
-		printf "  libopencm3 is not initialized\n"; \
+		printf "  libopencm3 is not initialized and build\n"; \
 		printf "  Please run:\n"; \
-		printf "    $$ git submodule init\n"; \
-		printf "    $$ git submodule update\n"; \
+		printf "    $$ git submodule update --init\n"; \
+		printf "    $$ make -C inc/libopencm3 -j\n"; \
 		printf "  before running make.\n"; \
 		printf "#===========# ERROR #===========#\n"; \
 		exit 1; \
 		fi
-	$(Q)$(MAKE) -C $(OPENCM3_DIR) TARGETS=$(TARGETS)
 
 freertos:
 	$(Q)if [ ! "`ls -A $(FREERTOS_DIR)`" ] ; then \
 		printf "#===========# ERROR #===========#\n"; \
 		printf "  FreeRTOS is not initialized\n"; \
 		printf "  Please run:\n"; \
-		printf "    $$ git submodule init\n"; \
-		printf "    $$ git submodule update\n"; \
+		printf "    $$ git submodule update --init\n"; \
 		printf "  before running make.\n"; \
 		printf "#===========# ERROR #===========#\n"; \
 		exit 1; \
@@ -136,9 +151,13 @@ clean:
 	@printf "  CLEAN\tobj\n"
 	$(Q)rm -Rf obj/*
 
-flash: $(BIN_DIR)/$(PROJECT_NAME).bin
+flash: $(BIN_DIR)/$(PROJECT_NAME).elf
 	@printf "  FLASH\t$<\n"
-	$(Q)$(STFLASH) --reset write $(BIN_DIR)/$(PROJECT_NAME).bin 0x08000000
+	$(Q)$(STM32CUBEPROG) -c port=usb1 reset=HWrst -w $< -v
 
-.PHONY: all libopencm3 freertos clean flash
-.SECONDARY: $(OBJECTS) $(BIN_DIR)/$(PROJECT_NAME).elf
+format:
+	$(Q)clang-format -i -style=file --verbose $(SRC_FILES)
+
+include $(OPENCM3_DIR)/mk/genlink-rules.mk
+
+
